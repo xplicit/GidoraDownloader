@@ -99,7 +99,9 @@ namespace Downloader.App
 
                     using (var webResponse = (HttpWebResponse) webRequest.GetResponse())
                     {
-                        info.IsSupportedHead = webResponse.StatusCode == HttpStatusCode.PartialContent;
+                        info.IsSupportedRange = webResponse.StatusCode == HttpStatusCode.PartialContent
+                                                || webResponse.GetResponseHeader("Accept-Ranges") == "bytes";
+
                         success = true;
                     }
                 }
