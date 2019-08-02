@@ -12,12 +12,20 @@ namespace Downloader.App
 {
     public class DownloadCompletedEventArgs : EventArgs
     {
-        public string FileUrl { get; set; }
-        public string FilePath { get; set; }
-        public long FileLength { get; set; }
+        public DownloadResult Result { get; set; }
     }
 
-    public class Downloader
+    public class ProgressChangedEventArgs : EventArgs
+    {
+        public string FileUrl { get; set; }
+        public long Progress { get; set; }
+        public long FileLength { get; set; }
+
+        public ProgressChangedEventArgs ShallowCopy() => (ProgressChangedEventArgs)MemberwiseClone();
+    }
+
+
+    public class Downloader : IDisposable
     {
         private static readonly ILog log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
@@ -29,6 +37,8 @@ namespace Downloader.App
 
         public event EventHandler<DownloadCompletedEventArgs> DownloadCompleted;
 
+        public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
+
         public Downloader()
         {
             ServicePointManager.Expect100Continue = false;
@@ -36,9 +46,38 @@ namespace Downloader.App
             ServicePointManager.MaxServicePointIdleTime = 1000;
         }
 
-        public void OnDownloadComplete(string fileUrl, string filePath, long fileLength)
+        private volatile bool stopProgressThread = false;
+
+        void StartProgressThread(ProgressChangedEventArgs changedEventArgs)
         {
-            DownloadCompleted?.Invoke(this, new DownloadCompletedEventArgs { FileUrl = fileUrl, FilePath = filePath, FileLength = fileLength});
+            //start progress notification thread
+            new Thread(_ =>
+            {
+                log.Debug($"Progress thread started. File {changedEventArgs.FileUrl}");
+                bool completed = false;
+                lock (changedEventArgs)
+                {
+                    while (!stopProgressThread && !completed)
+                    {
+                        Monitor.Wait(changedEventArgs);
+                        var sentArgs = changedEventArgs.ShallowCopy();
+                        Monitor.PulseAll(changedEventArgs);
+                        completed = sentArgs.Progress == sentArgs.FileLength;
+                        OnProgressChanged(sentArgs);
+                    }
+                }
+                log.Debug($"Progress thread stopped. File {changedEventArgs.FileUrl}");
+            }) { IsBackground = true }.Start();
+        }
+
+        public void OnDownloadComplete(DownloadResult result)
+        {
+            DownloadCompleted?.Invoke(this, new DownloadCompletedEventArgs { Result = result});
+        }
+
+        public void OnProgressChanged(ProgressChangedEventArgs eventArgs)
+        {
+            ProgressChanged?.Invoke(this, eventArgs);
         }
 
         public DownloadFileInfo GetFileInfo(string fileUrl)
@@ -127,6 +166,13 @@ namespace Downloader.App
             return info;
         }
 
+        public void DownloadAsync(string fileUrl, string destinationFolderPath, int numberOfParallelDownloads = 0,
+            bool validateSSL = false)
+        {
+            new Thread(_ => Download(fileUrl, destinationFolderPath, numberOfParallelDownloads, validateSSL ))
+                { IsBackground = true}.Start();
+        }
+
         public DownloadResult Download(string fileUrl, string destinationFolderPath, int numberOfParallelDownloads = 0, bool validateSSL = false)
         {
             if (!validateSSL)
@@ -148,7 +194,7 @@ namespace Downloader.App
             //Calculate destination path  
             string filePath = Path.Combine(destinationFolderPath, uri.Segments.Last());
 
-            var result = new DownloadResult { FilePath = filePath, FileExists = true };
+            var result = new DownloadResult { FileUrl = fileUrl, FilePath = filePath, FileExists = true };
 
             //Handle number of parallel downloads  
             if (numberOfParallelDownloads <= 0)
@@ -159,16 +205,16 @@ namespace Downloader.App
             var readRanges = PrepareRanges(downloadFileInfo, numberOfParallelDownloads);
 
             var sw = Stopwatch.StartNew();
-            long bytesDownloaded = DownloadRanges(fileUrl, readRanges, downloadFileInfo.IsSupportedRange);
+            long bytesDownloaded = DownloadRanges(downloadFileInfo, readRanges);
             sw.Stop();
 
             result.TimeTakenMs = sw.ElapsedMilliseconds;
             result.ParallelDownloads = readRanges.Count;
-            result.Size = bytesDownloaded;
+            result.BytesDownloaded = bytesDownloaded;
 
             WriteFile(filePath, readRanges);
 
-            OnDownloadComplete(fileUrl, filePath, bytesDownloaded);
+            OnDownloadComplete(result);
 
             return result;
         }
@@ -222,12 +268,14 @@ namespace Downloader.App
             return readRanges;
         }
 
-        private long DownloadRanges(string fileUrl, List<Range> readRanges, bool isSupportedRange)
+        private long DownloadRanges(DownloadFileInfo info, List<Range> readRanges)
         { 
             // Parallel download  
             long bytesDownloaded = 0;
             int numberOfThreads = readRanges.Count;
             var mutex = new ManualResetEvent(false);
+            var progressChangedEventArgs = new ProgressChangedEventArgs { FileUrl = info.FileUrl, FileLength = info.Length};
+            StartProgressThread(progressChangedEventArgs);
 
             foreach (var readRange in readRanges)
             {
@@ -245,9 +293,9 @@ namespace Downloader.App
                     {
                         try
                         {
-                            var httpWebRequest = (HttpWebRequest)WebRequest.Create(fileUrl);
+                            var httpWebRequest = (HttpWebRequest)WebRequest.Create(info.FileUrl);
                             httpWebRequest.Method = "GET";
-                            if (isSupportedRange)
+                            if (info.IsSupportedRange)
                                 httpWebRequest.AddRange((int)readRange.Start + offset, (int)readRange.End);
                             httpWebRequest.Timeout = TimeoutMs;
                             httpWebRequest.ReadWriteTimeout = TimeoutMs;
@@ -263,6 +311,12 @@ namespace Downloader.App
                                     {
                                         offset += bytesRead;
                                         Interlocked.Add(ref bytesDownloaded, bytesRead);
+
+                                        lock (progressChangedEventArgs)
+                                        {
+                                            progressChangedEventArgs.Progress = bytesDownloaded;
+                                            Monitor.PulseAll(progressChangedEventArgs);
+                                        }
                                     }
                                 }
 
@@ -272,7 +326,7 @@ namespace Downloader.App
                         catch (Exception ex)
                         {
                             //reset offset if server does not support range
-                            if (!isSupportedRange)
+                            if (!info.IsSupportedRange)
                                 offset = 0;
 
                             log.Warn($"Exception {ex.Message} index={readRange.Index} offset={offset}");
@@ -296,6 +350,31 @@ namespace Downloader.App
         {
             triesCount++;
             Thread.Sleep(NetErrorWaitMs);
+        }
+
+        private void ReleaseUnmanagedResources()
+        {
+            // TODO release unmanaged resources here
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            ReleaseUnmanagedResources();
+            if (disposing)
+            {
+                stopProgressThread = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        ~Downloader()
+        {
+            Dispose(false);
         }
     }
 }
