@@ -36,6 +36,12 @@ namespace Downloader.App
 
             sw.Stop();
 
+            if (!result.FileExists)
+            {
+                Console.WriteLine($"File {args[0]} does not exist");
+                return;
+            }
+
             Console.WriteLine($"Location: {result.FilePath}");
             Console.WriteLine($"Size: {result.Size}bytes");
             Console.WriteLine($"Time taken: {result.TimeTakenMs}ms");

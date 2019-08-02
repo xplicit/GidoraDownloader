@@ -136,22 +136,25 @@ namespace Downloader.App
 
             Uri uri = new Uri(fileUrl);
 
+            var downloadFileInfo = GetFileInfo(fileUrl);
+
+            log.Info($"HEAD supported: {downloadFileInfo.IsSupportedHead}, Range supported: {downloadFileInfo.IsSupportedRange}");
+            log.Info($"File {fileUrl} exists: {downloadFileInfo.Exists}, length = {downloadFileInfo.Length}");
+            log.Info($"{downloadFileInfo.Length}");
+
+            if (!downloadFileInfo.Exists)
+                return new DownloadResult { FileExists = false };
+
             //Calculate destination path  
             string filePath = Path.Combine(destinationFolderPath, uri.Segments.Last());
 
-            var result = new DownloadResult { FilePath = filePath };
+            var result = new DownloadResult { FilePath = filePath, FileExists = true };
 
             //Handle number of parallel downloads  
             if (numberOfParallelDownloads <= 0)
             {
                 numberOfParallelDownloads = Environment.ProcessorCount;
             }
-
-            var downloadFileInfo = GetFileInfo(fileUrl);
-
-            log.Info($"HEAD supported: {downloadFileInfo.IsSupportedHead}, Range supported: {downloadFileInfo.IsSupportedRange}");
-            log.Info($"File {fileUrl} exists: {downloadFileInfo.Exists}, length = {downloadFileInfo.Length}");
-            log.Info($"{downloadFileInfo.Length}");
 
             var readRanges = PrepareRanges(downloadFileInfo, numberOfParallelDownloads);
 
@@ -223,9 +226,8 @@ namespace Downloader.App
         { 
             // Parallel download  
             long bytesDownloaded = 0;
-            var mutexes = new WaitHandle[readRanges.Count];
-            for (int i = 0; i < readRanges.Count; i++)
-                mutexes[i] = readRanges[i].Mutex;
+            int numberOfThreads = readRanges.Count;
+            var mutex = new ManualResetEvent(false);
 
             foreach (var readRange in readRanges)
             {
@@ -278,13 +280,14 @@ namespace Downloader.App
                         }
                     }
 
-                    readRange.Mutex.Set();
+                    if (Interlocked.Decrement(ref numberOfThreads) == 0)
+                        mutex.Set();
                     log.Debug($"{readRange.Index} completed. Range: {readRange.Start}-{readRange.End}");
 
                 }){ IsBackground = true}.Start();
             }
 
-            WaitHandle.WaitAll(mutexes);
+            mutex.WaitOne();
 
             return bytesDownloaded;
         }
