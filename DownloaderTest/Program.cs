@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Net;
-using System.Security.Policy;
 using System.Threading;
+using Downloader.Gidora;
 using log4net;
 using log4net.Config;
 
-namespace Downloader.App
+namespace Downloader
 {
     class Program
     {
@@ -29,7 +27,7 @@ namespace Downloader.App
             var mutexes = new WaitHandle[args.Length -1];
             var downloads = new Dictionary<string, ManualResetEvent>();
 
-            var downloader = new Downloader();
+            var downloader = new GidoraDownloader();
             downloader.DownloadCompleted += (sender, eventArgs) =>
             {
                 var result = eventArgs.Result;
