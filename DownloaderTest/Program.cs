@@ -1,22 +1,28 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Net;
+using System.Security.Policy;
+using log4net;
+using log4net.Config;
 
 namespace Downloader.App
 {
     class Program
     {
+        private static readonly ILog log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
         static void Main(string[] args)
         {
+            XmlConfigurator.Configure();
+            log.Info("Downloader tool started");
+
             if (args.Length < 2)
             {
                 Console.WriteLine("Usage <url> <number_of_threads>");
                 return;
             }
 
-            ServicePointManager.DefaultConnectionLimit = 100;
-
-            Console.WriteLine($"Connection limit: {ServicePointManager.DefaultConnectionLimit}");
+            log.Info($"FileUrl = {args[0]}, Threads = {args[1]}");
 
             var sw = Stopwatch.StartNew();
 
