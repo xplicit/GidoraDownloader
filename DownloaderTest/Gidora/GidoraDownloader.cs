@@ -165,14 +165,14 @@ namespace Downloader.Gidora
             return info;
         }
 
-        public void DownloadAsync(string fileUrl, string destinationFolderPath, int numberOfParallelDownloads = 0,
+        public void DownloadAsync(string fileUrl, string filePath, int numberOfParallelDownloads = 0,
             bool validateSSL = false)
         {
-            new Thread(_ => Download(fileUrl, destinationFolderPath, numberOfParallelDownloads, validateSSL ))
+            new Thread(_ => Download(fileUrl, filePath, numberOfParallelDownloads, validateSSL ))
                 { IsBackground = true}.Start();
         }
 
-        public DownloadResult Download(string fileUrl, string destinationFolderPath, int numberOfParallelDownloads = 0, bool validateSSL = false)
+        public DownloadResult Download(string fileUrl, string filePath, int numberOfParallelDownloads = 0, bool validateSSL = false)
         {
             if (!validateSSL)
             {
@@ -189,9 +189,6 @@ namespace Downloader.Gidora
 
             if (!downloadFileInfo.Exists)
                 return new DownloadResult { FileExists = false };
-
-            //Calculate destination path  
-            string filePath = Path.Combine(destinationFolderPath, uri.Segments.Last());
 
             var result = new DownloadResult { FileUrl = fileUrl, FilePath = filePath, FileExists = true };
 

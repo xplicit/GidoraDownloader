@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using Downloader.Gidora;
 using log4net;
@@ -77,7 +79,10 @@ namespace Downloader
                 downloads.Add(args[i], (ManualResetEvent)mutexes[i]);
                 lastPercents.Add(args[i], 0.0);
 
-                downloader.DownloadAsync(args[i], @".", int.Parse(args[args.Length - 1]));
+                //Calculate destination path  
+                string filePath = new Uri(args[i]).Segments.Last();
+
+                downloader.DownloadAsync(args[i], filePath, int.Parse(args[args.Length - 1]));
             }
 
             WaitHandle.WaitAll(mutexes);
