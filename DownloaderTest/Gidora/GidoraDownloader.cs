@@ -2,13 +2,17 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Threading;
 using log4net;
 
 namespace Downloader.Gidora
 {
+    public class BandwidthEventArgs : EventArgs
+    {
+        public Bandwidth Bandwidth { get; set; }
+    }
+
     public class DownloadCompletedEventArgs : EventArgs
     {
         public DownloadResult Result { get; set; }
@@ -34,6 +38,8 @@ namespace Downloader.Gidora
 
         public int TimeoutMs { get; set; } = 30000;
 
+        public event EventHandler<BandwidthEventArgs> BandwidthMeasured;
+
         public event EventHandler<DownloadCompletedEventArgs> DownloadCompleted;
 
         public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
@@ -47,7 +53,7 @@ namespace Downloader.Gidora
 
         private volatile bool stopProgressThread = false;
 
-        void StartProgressThread(ProgressChangedEventArgs changedEventArgs)
+        private void StartProgressThread(ProgressChangedEventArgs changedEventArgs)
         {
             //start progress notification thread
             new Thread(_ =>
@@ -67,6 +73,67 @@ namespace Downloader.Gidora
                 }
                 log.Debug($"Progress thread stopped. File {changedEventArgs.FileUrl}");
             }) { IsBackground = true }.Start();
+        }
+
+        private void StartBandwidthThread(ProgressChangedEventArgs changedEventArgs)
+        {
+            new Thread(_ =>
+                {
+                    log.Debug($"Bandwidth thread started. File {changedEventArgs.FileUrl}");
+                    var bandwidth = new Bandwidth { FileUrl = changedEventArgs.FileUrl, Measures = new List<BandwidthMeasure>()};
+                    var sw = Stopwatch.StartNew();
+                    bool completed = false;
+                    while (!stopProgressThread && !completed)
+                    {
+                        ProgressChangedEventArgs bandwidthArgs;
+                        lock (changedEventArgs)
+                        {
+                            bandwidthArgs = changedEventArgs.ShallowCopy();
+                        }
+
+                        completed = bandwidthArgs.Progress == bandwidthArgs.FileLength;
+                        CalculateBandwidth(bandwidth, changedEventArgs.Progress, changedEventArgs.FileLength, sw);
+                        OnBandwidthMeasure(bandwidth);
+                        Thread.Sleep(100);
+                    }
+                    sw.Stop();
+                    log.Debug($"Bandwidth thread stopped. File {changedEventArgs.FileUrl}");
+                })
+                { IsBackground = true }.Start();
+        }
+
+        private Bandwidth CalculateBandwidth(Bandwidth bandwidth, long progress, long fileLength, Stopwatch sw)
+        {
+            var measure = new BandwidthMeasure
+                {ElapsedMs = sw.ElapsedMilliseconds, ProgressBytes = progress, TotalBytes = fileLength};
+
+            //we suppose that every measure is created in 100ms interval
+            bandwidth.Measures.Add(measure);
+
+            bandwidth.Mean1Second = CalculateBandwidthForPeriod(bandwidth.Measures, 1000, bandwidth.Mean1Second);
+            bandwidth.Mean5Seconds = CalculateBandwidthForPeriod(bandwidth.Measures, 5000, bandwidth.Mean5Seconds);
+            bandwidth.Mean30Seconds = CalculateBandwidthForPeriod(bandwidth.Measures, 30000, bandwidth.Mean30Seconds);
+            bandwidth.Mean1Minute = CalculateBandwidthForPeriod(bandwidth.Measures, 60000, bandwidth.Mean1Minute);
+
+            return bandwidth;
+        }
+
+        private long CalculateBandwidthForPeriod(List<BandwidthMeasure> measures, long periodMs, long defaultBandwidth)
+        {
+            var i = measures.Count - 1;
+            var measure = measures[i];
+            long time = 0;
+            //calculate 1s
+            while (i >= 0 && (time = measure.ElapsedMs - measures[i].ElapsedMs) < periodMs) i--;
+            time = (i >= 0) ? time : measure.ElapsedMs;
+            long bytes = measure.ProgressBytes - ((i >= 0) ? measures[i].ProgressBytes : 0);
+
+            return time > 0 ? 1000 * bytes / time : defaultBandwidth;
+        }
+
+        public void OnBandwidthMeasure(Bandwidth bandwidth)
+        {
+            BandwidthMeasured?.Invoke(this, new BandwidthEventArgs { Bandwidth = bandwidth });
         }
 
         public void OnDownloadComplete(DownloadResult result)
@@ -271,6 +338,7 @@ namespace Downloader.Gidora
             var mutex = new ManualResetEvent(false);
             var progressChangedEventArgs = new ProgressChangedEventArgs { FileUrl = info.FileUrl, FileLength = info.Length};
             StartProgressThread(progressChangedEventArgs);
+            StartBandwidthThread(progressChangedEventArgs);
 
             foreach (var readRange in readRanges)
             {

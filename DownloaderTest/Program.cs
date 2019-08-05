@@ -73,6 +73,11 @@ namespace Downloader
                 }
             };
 
+            downloader.BandwidthMeasured += (sender, eventArgs) =>
+            {
+                log.Info($"Path = {eventArgs.Bandwidth.FileUrl} 1sec = {eventArgs.Bandwidth.Mean1Second} 5sec = {eventArgs.Bandwidth.Mean5Seconds} 30sec = {eventArgs.Bandwidth.Mean30Seconds} 1min = {eventArgs.Bandwidth.Mean1Minute}" );
+            };
+
             for (int i = 0; i < args.Length - 1; i++)
             {
                 mutexes[i] = new ManualResetEvent(false);
