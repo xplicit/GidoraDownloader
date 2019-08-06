@@ -115,6 +115,8 @@ namespace Downloader.Gidora
             bandwidth.Mean30Seconds = CalculateBandwidthForPeriod(bandwidth.Measures, 30000, bandwidth.Mean30Seconds);
             bandwidth.Mean1Minute = CalculateBandwidthForPeriod(bandwidth.Measures, 60000, bandwidth.Mean1Minute);
 
+            bandwidth.Remaining = bandwidth.Mean1Minute > 0 ? (fileLength - progress)/bandwidth.Mean1Minute : (long?)null;
+
             return bandwidth;
         }
 
@@ -125,8 +127,8 @@ namespace Downloader.Gidora
             long time = 0;
             //calculate 1s
             while (i >= 0 && (time = measure.ElapsedMs - measures[i].ElapsedMs) < periodMs) i--;
-            time = (i >= 0) ? time : measure.ElapsedMs;
-            long bytes = measure.ProgressBytes - ((i >= 0) ? measures[i].ProgressBytes : 0);
+            time = i >= 0 ? time : measure.ElapsedMs;
+            long bytes = measure.ProgressBytes - (i >= 0 ? measures[i].ProgressBytes : 0);
 
             return time > 0 ? 1000 * bytes / time : defaultBandwidth;
         }

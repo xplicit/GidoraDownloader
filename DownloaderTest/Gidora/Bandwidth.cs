@@ -20,6 +20,7 @@ namespace Downloader.Gidora
         public long Mean5Seconds { get; set; }
         public long Mean30Seconds { get; set; }
         public long Mean1Minute { get; set; }
+        public long? Remaining { get; set; }
 
         public List<BandwidthMeasure> Measures { get; set; }
     }
