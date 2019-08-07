@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using log4net;
@@ -234,12 +235,19 @@ namespace Downloader.Gidora
             return info;
         }
 
+        public void DownloadAsync(string fileUrl, int numberOfParallelDownloads = 0,
+            bool validateSSL = false) =>
+            DownloadAsync(fileUrl, new Uri(fileUrl).Segments.Last());
+
         public void DownloadAsync(string fileUrl, string filePath, int numberOfParallelDownloads = 0,
             bool validateSSL = false)
         {
             new Thread(_ => Download(fileUrl, filePath, numberOfParallelDownloads, validateSSL ))
                 { IsBackground = true}.Start();
         }
+
+        public DownloadResult Download(string fileUrl, int numberOfParallelDownloads = 0, bool validateSSL = false)
+            => Download(fileUrl, new Uri(fileUrl).Segments.Last(), numberOfParallelDownloads, validateSSL);
 
         public DownloadResult Download(string fileUrl, string filePath, int numberOfParallelDownloads = 0, bool validateSSL = false)
         {
