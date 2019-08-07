@@ -75,11 +75,15 @@ namespace Downloader.Gidora
 
         private void StartProgressThread(ProgressChangedEventArgs changedEventArgs)
         {
+            var initialArgs = changedEventArgs.ShallowCopy();
             //start progress notification thread
             new Thread(_ =>
             {
                 log.Debug($"Progress thread started. File {changedEventArgs.FileUrl}");
                 bool completed = false;
+                //send zero progress
+                OnProgressChanged(initialArgs);
+
                 lock (changedEventArgs)
                 {
                     while (!stopProgressThread && !completed)
