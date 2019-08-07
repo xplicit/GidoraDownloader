@@ -28,6 +28,18 @@ namespace Downloader.Gidora
         public ProgressChangedEventArgs ShallowCopy() => (ProgressChangedEventArgs)MemberwiseClone();
     }
 
+    public class BatchBandwidthEventArgs : EventArgs
+    {
+    }
+
+    public class BatchDownloadCompletedEventArgs : EventArgs
+    {
+    }
+
+    public class BatchProgressChangedEventArgs : EventArgs
+    {
+    }
+
 
     public class GidoraDownloader : IDisposable
     {
@@ -45,6 +57,12 @@ namespace Downloader.Gidora
 
         public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
 
+        public event EventHandler<BatchProgressChangedEventArgs> BatchProgressChanged;
+
+        public event EventHandler<BatchBandwidthEventArgs> BatchBandwidthMeasured;
+
+        public event EventHandler<BatchDownloadCompletedEventArgs> BatchDownloadCompleted;
+
         public GidoraDownloader()
         {
             ServicePointManager.Expect100Continue = false;
@@ -52,7 +70,8 @@ namespace Downloader.Gidora
             ServicePointManager.MaxServicePointIdleTime = 1000;
         }
 
-        private volatile bool stopProgressThread = false;
+        private volatile bool stopProgressThread;
+        private static int batchId;
 
         private void StartProgressThread(ProgressChangedEventArgs changedEventArgs)
         {
@@ -233,6 +252,13 @@ namespace Downloader.Gidora
           
 
             return info;
+        }
+
+        public DownloadBatch CreateBatch() => new DownloadBatch() { BatchId = Interlocked.Increment(ref batchId)};
+
+        public void DownloadAsync(DownloadBatch batch, string fileUrl, string filePath, int numberOfParallelDownloads = 0, bool validateSSL = false)
+        {
+            throw new NotImplementedException();
         }
 
         public void DownloadAsync(string fileUrl, int numberOfParallelDownloads = 0,

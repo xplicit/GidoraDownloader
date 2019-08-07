@@ -63,6 +63,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Gidora\Bandwidth.cs" />
+    <Compile Include="Gidora\DownloadBatch.cs" />
     <Compile Include="Gidora\GidoraDownloader.cs" />
     <Compile Include="Gidora\DownloaderResult.cs" />
     <Compile Include="Gidora\DownloadFileInfo.cs" />
