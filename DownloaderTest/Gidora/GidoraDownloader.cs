@@ -29,6 +29,11 @@ namespace Downloader.Gidora
         public ProgressChangedEventArgs ShallowCopy() => (ProgressChangedEventArgs)MemberwiseClone();
     }
 
+    public class FileInfoReceivedEventArgs : EventArgs
+    {
+        public DownloadFileInfo DownloadFileInfo { get; set; }
+    }
+
     public class BatchBandwidthEventArgs : EventArgs
     {
     }
@@ -57,6 +62,8 @@ namespace Downloader.Gidora
         public event EventHandler<DownloadCompletedEventArgs> DownloadCompleted;
 
         public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
+
+        public event EventHandler<FileInfoReceivedEventArgs> FileInfoReceived;
 
         public event EventHandler<BatchProgressChangedEventArgs> BatchProgressChanged;
 
@@ -171,6 +178,11 @@ namespace Downloader.Gidora
         public void OnProgressChanged(ProgressChangedEventArgs eventArgs)
         {
             ProgressChanged?.Invoke(this, eventArgs);
+        }
+
+        private void OnGetFileInfo(DownloadFileInfo downloadFileInfo)
+        {
+            FileInfoReceived?.Invoke(this, new FileInfoReceivedEventArgs { DownloadFileInfo = downloadFileInfo });
         }
 
         public DownloadFileInfo GetFileInfo(string fileUrl)
@@ -290,6 +302,7 @@ namespace Downloader.Gidora
             Uri uri = new Uri(fileUrl);
 
             var downloadFileInfo = GetFileInfo(fileUrl);
+            OnGetFileInfo(downloadFileInfo);
 
             log.Info($"HEAD supported: {downloadFileInfo.IsSupportedHead}, Range supported: {downloadFileInfo.IsSupportedRange}");
             log.Info($"File {fileUrl} exists: {downloadFileInfo.Exists}, length = {downloadFileInfo.Length}");
