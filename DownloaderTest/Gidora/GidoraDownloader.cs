@@ -24,6 +24,7 @@ namespace Downloader.Gidora
         public string FileUrl { get; set; }
         public long Progress { get; set; }
         public long FileLength { get; set; }
+        public long ElapsedMs { get; set; }
 
         public ProgressChangedEventArgs ShallowCopy() => (ProgressChangedEventArgs)MemberwiseClone();
     }
@@ -379,6 +380,7 @@ namespace Downloader.Gidora
             var progressChangedEventArgs = new ProgressChangedEventArgs { FileUrl = info.FileUrl, FileLength = info.Length};
             StartProgressThread(progressChangedEventArgs);
             StartBandwidthThread(progressChangedEventArgs);
+            var sw = Stopwatch.StartNew();
 
             foreach (var readRange in readRanges)
             {
@@ -418,6 +420,7 @@ namespace Downloader.Gidora
                                         lock (progressChangedEventArgs)
                                         {
                                             progressChangedEventArgs.Progress = bytesDownloaded;
+                                            progressChangedEventArgs.ElapsedMs = sw.ElapsedMilliseconds;
                                             Monitor.PulseAll(progressChangedEventArgs);
                                         }
                                     }
@@ -432,7 +435,7 @@ namespace Downloader.Gidora
                             if (!info.IsSupportedRange)
                                 offset = 0;
 
-                            log.Warn($"Exception {ex.Message} index={readRange.Index} offset={offset}");
+                            log.Warn($"Exception {ex.Message}. index={readRange.Index} offset={offset} uri={info.FileUrl}");
                             WaitNetwork(ref triesCount);
                         }
                     }
@@ -445,6 +448,7 @@ namespace Downloader.Gidora
             }
 
             mutex.WaitOne();
+            sw.Stop();
 
             return bytesDownloaded;
         }
