@@ -8,5 +8,6 @@
         public long BytesDownloaded { get; set; }
         public long TimeTakenMs { get; set; }
         public int ParallelDownloads { get; set; }
+        public bool IsCancelled { get; set; }
     }
 }

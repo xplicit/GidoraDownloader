@@ -71,11 +71,16 @@ namespace Downloader.Gidora
 
         public event EventHandler<BatchDownloadCompletedEventArgs> BatchDownloadCompleted;
 
-        public GidoraDownloader()
+        public GidoraDownloader(bool validateSsl = true)
         {
             ServicePointManager.Expect100Continue = false;
             ServicePointManager.DefaultConnectionLimit = 100;
             ServicePointManager.MaxServicePointIdleTime = 1000;
+
+            if (!validateSsl)
+            {
+                ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+            }
         }
 
         private volatile bool stopProgressThread;
@@ -273,32 +278,30 @@ namespace Downloader.Gidora
 
         public DownloadBatch CreateBatch() => new DownloadBatch() { BatchId = Interlocked.Increment(ref batchId)};
 
-        public void DownloadAsync(DownloadBatch batch, string fileUrl, string filePath, int numberOfParallelDownloads = 0, bool validateSSL = false)
+        public void DownloadAsync(DownloadBatch batch, string fileUrl, string filePath, int numberOfParallelDownloads, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public void DownloadAsync(string fileUrl, int numberOfParallelDownloads = 0,
-            bool validateSSL = false) =>
-            DownloadAsync(fileUrl, new Uri(fileUrl).Segments.Last());
+        public void DownloadAsync(string fileUrl, int numberOfParallelDownloads) => DownloadAsync(fileUrl, numberOfParallelDownloads, CancellationToken.None);
 
-        public void DownloadAsync(string fileUrl, string filePath, int numberOfParallelDownloads = 0,
-            bool validateSSL = false)
+        public void DownloadAsync(string fileUrl, int numberOfParallelDownloads, CancellationToken cancellationToken) =>
+            DownloadAsync(fileUrl, new Uri(fileUrl).Segments.Last(), numberOfParallelDownloads, cancellationToken);
+
+        public void DownloadAsync(string fileUrl, string filePath, int numberOfParallelDownloads)
+            => DownloadAsync(fileUrl, filePath, numberOfParallelDownloads, CancellationToken.None);
+
+        public void DownloadAsync(string fileUrl, string filePath, int numberOfParallelDownloads, CancellationToken cancellationToken)
         {
-            new Thread(_ => Download(fileUrl, filePath, numberOfParallelDownloads, validateSSL ))
+            new Thread(_ => Download(fileUrl, filePath, numberOfParallelDownloads, cancellationToken))
                 { IsBackground = true}.Start();
         }
 
-        public DownloadResult Download(string fileUrl, int numberOfParallelDownloads = 0, bool validateSSL = false)
-            => Download(fileUrl, new Uri(fileUrl).Segments.Last(), numberOfParallelDownloads, validateSSL);
+        public DownloadResult Download(string fileUrl, int numberOfParallelDownloads, CancellationToken cancellationToken)
+            => Download(fileUrl, new Uri(fileUrl).Segments.Last(), numberOfParallelDownloads, cancellationToken);
 
-        public DownloadResult Download(string fileUrl, string filePath, int numberOfParallelDownloads = 0, bool validateSSL = false)
+        public DownloadResult Download(string fileUrl, string filePath, int numberOfParallelDownloads, CancellationToken cancellationToken)
         {
-            if (!validateSSL)
-            {
-                ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-            }
-
             Uri uri = new Uri(fileUrl);
 
             var downloadFileInfo = GetFileInfo(fileUrl);
@@ -322,12 +325,13 @@ namespace Downloader.Gidora
             var readRanges = PrepareRanges(downloadFileInfo, numberOfParallelDownloads);
 
             var sw = Stopwatch.StartNew();
-            long bytesDownloaded = DownloadRanges(downloadFileInfo, readRanges);
+            long bytesDownloaded = DownloadRanges(downloadFileInfo, readRanges, cancellationToken);
             sw.Stop();
 
             result.TimeTakenMs = sw.ElapsedMilliseconds;
             result.ParallelDownloads = readRanges.Count;
             result.BytesDownloaded = bytesDownloaded;
+            result.IsCancelled = cancellationToken.IsCancellationRequested;
 
             WriteFile(filePath, readRanges);
 
@@ -384,7 +388,7 @@ namespace Downloader.Gidora
             return readRanges;
         }
 
-        private long DownloadRanges(DownloadFileInfo info, List<Range> readRanges)
+        private long DownloadRanges(DownloadFileInfo info, List<Range> readRanges, CancellationToken cancel)
         { 
             // Parallel download  
             long bytesDownloaded = 0;
@@ -425,7 +429,7 @@ namespace Downloader.Gidora
                                     while ((bytesRead = responseStream.Read(readRange.Buffer,
                                                offset,
                                                rangeLen - offset < blockSize ? rangeLen - offset : blockSize
-                                           )) > 0)
+                                           )) > 0 && !cancel.IsCancellationRequested)
                                     {
                                         offset += bytesRead;
                                         Interlocked.Add(ref bytesDownloaded, bytesRead);
@@ -437,6 +441,7 @@ namespace Downloader.Gidora
                                             Monitor.PulseAll(progressChangedEventArgs);
                                         }
                                     }
+
                                 }
 
                                 success = true;
@@ -455,6 +460,7 @@ namespace Downloader.Gidora
 
                     if (Interlocked.Decrement(ref numberOfThreads) == 0)
                         mutex.Set();
+
                     log.Debug($"{readRange.Index} completed. Range: {readRange.Start}-{readRange.End}");
 
                 }){ IsBackground = true}.Start();

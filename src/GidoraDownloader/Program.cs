@@ -46,6 +46,8 @@ namespace Downloader
                     log.Info($"Size: {result.BytesDownloaded}bytes");
                     log.Info($"Time taken: {result.TimeTakenMs}ms");
                     log.Info($"Parallel: {result.ParallelDownloads}");
+                    log.Info($"Cancelled: {result.IsCancelled}");
+
                     //Console.WriteLine($"Total time: {sw.ElapsedMilliseconds}ms");
                 }
 
@@ -72,6 +74,7 @@ namespace Downloader
                     }
                 }
             };
+            CancellationTokenSource source = new CancellationTokenSource();
 
             downloader.BandwidthMeasured += (sender, eventArgs) =>
             {
@@ -87,8 +90,11 @@ namespace Downloader
                 //Calculate destination path  
                 string filePath = new Uri(args[i]).Segments.Last();
 
-                downloader.DownloadAsync(args[i], filePath, int.Parse(args[args.Length - 1]));
+                downloader.DownloadAsync(args[i], filePath, int.Parse(args[args.Length - 1]), source.Token);
             }
+
+            //Thread.Sleep(10000);
+            //source.Cancel();
 
             WaitHandle.WaitAll(mutexes);
         }
