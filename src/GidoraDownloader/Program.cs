@@ -30,6 +30,11 @@ namespace Downloader
             var downloads = new Dictionary<string, ManualResetEvent>();
 
             var downloader = new GidoraDownloader();
+            downloader.ExceptionThrown += (sender, eventArgs) =>
+            {
+                log.Fatal("Fatal exception occured", eventArgs.Exception);
+            };
+
             downloader.DownloadCompleted += (sender, eventArgs) =>
             {
                 var result = eventArgs.Result;
