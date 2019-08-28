@@ -79,7 +79,7 @@ namespace Downloader
                     }
                 }
             };
-            CancellationTokenSource source = new CancellationTokenSource();
+            var source = new CancellationTokenSource();
 
             downloader.BandwidthMeasured += (sender, eventArgs) =>
             {

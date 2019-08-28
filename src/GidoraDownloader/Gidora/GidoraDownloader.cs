@@ -425,7 +425,8 @@ namespace Downloader.Gidora
                 result.BytesDownloaded = bytesDownloaded;
                 result.IsCancelled = cancellationToken.IsCancellationRequested;
 
-                WriteFile(filePath, readRanges);
+                if (!result.IsCancelled)
+                    WriteFile(filePath, readRanges);
 
                 OnDownloadComplete(result);
 
@@ -512,6 +513,8 @@ namespace Downloader.Gidora
 
             try
             {
+                if (cancel.IsCancellationRequested)
+                    return bytesDownloaded;
 
                 int numberOfThreads = readRanges.Count;
                 var mutex = new ManualResetEvent(false);
