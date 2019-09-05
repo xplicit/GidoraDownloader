@@ -276,13 +276,12 @@ namespace Downloader.Gidora
         {
             var info = new DownloadFileInfo { FileUrl = fileUrl};
 
-            bool success = false;
             int triesCount = 0;
 
             try
             {
 
-                while (!success && triesCount < MaxTriesCount)
+                while (!info.IsOperationSuccess && triesCount < MaxTriesCount)
                 {
                     try
                     {
@@ -297,7 +296,7 @@ namespace Downloader.Gidora
                             info.Length = long.Parse(webResponse.Headers.Get("Content-Length"));
                             info.IsSupportedHead = true;
                             info.Exists = true;
-                            success = true;
+                            info.IsOperationSuccess = true;
                         }
                     }
                     catch (WebException ex)
@@ -318,9 +317,9 @@ namespace Downloader.Gidora
                     }
                 }
 
-                success = false;
+                info.IsOperationSuccess = false;
                 triesCount = 0;
-                while (!success && triesCount < MaxTriesCount)
+                while (!info.IsOperationSuccess && triesCount < MaxTriesCount)
                 {
                     try
                     {
@@ -336,7 +335,7 @@ namespace Downloader.Gidora
                             info.IsSupportedRange = webResponse.StatusCode == HttpStatusCode.PartialContent
                                                     || webResponse.GetResponseHeader("Accept-Ranges") == "bytes";
 
-                            success = true;
+                            info.IsOperationSuccess = true;
                         }
                     }
                     catch (WebException ex)
@@ -393,7 +392,7 @@ namespace Downloader.Gidora
         {
             try
             {
-                Uri uri = new Uri(fileUrl);
+                var uri = new Uri(fileUrl);
 
                 var downloadFileInfo = GetFileInfo(fileUrl);
                 OnGetFileInfo(downloadFileInfo);
@@ -403,10 +402,14 @@ namespace Downloader.Gidora
                 log.Info($"File {fileUrl} exists: {downloadFileInfo.Exists}, length = {downloadFileInfo.Length}");
                 log.Info($"{downloadFileInfo.Length}");
 
-                if (!downloadFileInfo.Exists)
-                    return new DownloadResult {FileExists = false};
+                if (!downloadFileInfo.Exists || !downloadFileInfo.IsOperationSuccess)
+                    return new DownloadResult
+                    {
+                        FileUrl = fileUrl, FilePath = filePath, FileExists = downloadFileInfo.Exists,
+                        IsOperationSuccess = downloadFileInfo.IsOperationSuccess,
+                        IsCancelled = cancellationToken.IsCancellationRequested
+                    };
 
-                var result = new DownloadResult {FileUrl = fileUrl, FilePath = filePath, FileExists = true};
 
                 //Handle number of parallel downloads  
                 if (numberOfParallelDownloads <= 0)
@@ -417,13 +420,11 @@ namespace Downloader.Gidora
                 var readRanges = PrepareRanges(downloadFileInfo, numberOfParallelDownloads);
 
                 var sw = Stopwatch.StartNew();
-                long bytesDownloaded = DownloadRanges(downloadFileInfo, readRanges, cancellationToken);
+                var result = DownloadRanges(downloadFileInfo, readRanges, cancellationToken);
                 sw.Stop();
 
                 result.TimeTakenMs = sw.ElapsedMilliseconds;
-                result.ParallelDownloads = readRanges.Count;
-                result.BytesDownloaded = bytesDownloaded;
-                result.IsCancelled = cancellationToken.IsCancellationRequested;
+                result.FilePath = filePath;
 
                 if (!result.IsCancelled)
                     WriteFile(filePath, readRanges);
@@ -437,7 +438,7 @@ namespace Downloader.Gidora
                 OnExceptionThrown(ex);
             }
 
-            return null;
+            return new DownloadResult {FileUrl = fileUrl, FilePath = filePath, IsOperationSuccess = false};
         }
 
         private void WriteFile(string filePath, List<Range> readRanges)
@@ -506,15 +507,19 @@ namespace Downloader.Gidora
             return readRanges;
         }
 
-        private long DownloadRanges(DownloadFileInfo info, List<Range> readRanges, CancellationToken cancel)
-        { 
-            // Parallel download  
+        private DownloadResult DownloadRanges(DownloadFileInfo info, List<Range> readRanges, CancellationToken cancel)
+        {
+            // Parallel download
+            var result = new DownloadResult {FileUrl = info.FileUrl, FileExists = info.Exists, FileLength = info.Length, ParallelDownloads = readRanges.Count};
             long bytesDownloaded = 0;
 
             try
             {
                 if (cancel.IsCancellationRequested)
-                    return bytesDownloaded;
+                {
+                    result.IsCancelled = true;
+                    return result;
+                }
 
                 int numberOfThreads = readRanges.Count;
                 var mutex = new ManualResetEvent(false);
@@ -538,7 +543,7 @@ namespace Downloader.Gidora
                             int triesCount = 0;
                             bool success = false;
 
-                            while (!success && triesCount < MaxTriesCount)
+                            while (!success &&  !mutex.WaitOne(0) && triesCount < MaxTriesCount)
                             {
                                 try
                                 {
@@ -586,10 +591,12 @@ namespace Downloader.Gidora
                                 }
                             }
 
-                            if (Interlocked.Decrement(ref numberOfThreads) == 0)
+                            //If one thread is failed signalize other threads to exit.
+                            //If all threads completed signalize the method to return download result
+                            if (!success || Interlocked.Decrement(ref numberOfThreads) == 0)
                                 mutex.Set();
 
-                            log.Debug($"{readRange.Index} completed. Range: {readRange.Start}-{readRange.End}");
+                            log.Debug($"{readRange.Index} completed. Success = {success}. Range: {readRange.Start}-{readRange.End}");
                         }
                         catch (Exception ex)
                         {
@@ -600,13 +607,16 @@ namespace Downloader.Gidora
 
                 mutex.WaitOne();
                 sw.Stop();
+                result.BytesDownloaded = bytesDownloaded;
+                result.IsOperationSuccess = Interlocked.CompareExchange(ref numberOfThreads, 0, 0) == 0;
+                result.IsCancelled = cancel.IsCancellationRequested;
             }
             catch (Exception ex)
             {
                 OnExceptionThrown(ex);
             }
 
-            return bytesDownloaded;
+            return result;
         }
 
         private void WaitNetwork(ref int triesCount)
