@@ -427,7 +427,7 @@ namespace Downloader.Gidora
                 result.FilePath = filePath;
 
                 if (!result.IsCancelled)
-                    WriteFile(filePath, readRanges);
+                    result.IsOperationSuccess &= WriteFile(filePath, readRanges);
 
                 OnDownloadComplete(result);
 
@@ -441,7 +441,7 @@ namespace Downloader.Gidora
             return new DownloadResult {FileUrl = fileUrl, FilePath = filePath, IsOperationSuccess = false};
         }
 
-        private void WriteFile(string filePath, List<Range> readRanges)
+        private bool WriteFile(string filePath, List<Range> readRanges)
         {
             try
             {
@@ -456,10 +456,13 @@ namespace Downloader.Gidora
                     destinationStream.Flush();
                 }
                 log.Info($"File saved {filePath}");
+
+                return true;
             }
             catch (Exception ex)
             {
                 OnExceptionThrown(ex);
+                return false;
             }
         }
 
