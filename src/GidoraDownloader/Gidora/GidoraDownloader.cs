@@ -402,13 +402,18 @@ namespace Downloader.Gidora
                 log.Info($"File {fileUrl} exists: {downloadFileInfo.Exists}, length = {downloadFileInfo.Length}");
                 log.Info($"{downloadFileInfo.Length}");
 
+                DownloadResult result;
                 if (!downloadFileInfo.Exists || !downloadFileInfo.IsOperationSuccess)
-                    return new DownloadResult
+                {
+                    result = new DownloadResult
                     {
                         FileUrl = fileUrl, FilePath = filePath, FileExists = downloadFileInfo.Exists,
                         IsOperationSuccess = downloadFileInfo.IsOperationSuccess,
                         IsCancelled = cancellationToken.IsCancellationRequested
                     };
+                    OnDownloadComplete(result);
+                    return result;
+                }
 
 
                 //Handle number of parallel downloads  
@@ -420,7 +425,7 @@ namespace Downloader.Gidora
                 var readRanges = PrepareRanges(downloadFileInfo, numberOfParallelDownloads);
 
                 var sw = Stopwatch.StartNew();
-                var result = DownloadRanges(downloadFileInfo, readRanges, cancellationToken);
+                result = DownloadRanges(downloadFileInfo, readRanges, cancellationToken);
                 sw.Stop();
 
                 result.TimeTakenMs = sw.ElapsedMilliseconds;
