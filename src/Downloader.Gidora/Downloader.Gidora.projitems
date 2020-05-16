@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>8cea4741-f223-46aa-9a15-b789db5c162f</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Downloader.Gidora</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Bandwidth.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)CancellationToken.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)CancellationTokenSource.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DownloadBatch.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DownloaderResult.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DownloadFileInfo.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)GidoraDownloader.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Range.cs" />
+  </ItemGroup>
+</Project>

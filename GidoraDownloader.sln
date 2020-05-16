@@ -1,11 +1,26 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.705
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30104.148
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GidoraDownloader", "src\GidoraDownloader\GidoraDownloader.csproj", "{27915EDE-4E12-4682-A69F-4E735A867E4B}"
 EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Downloader.Gidora", "src\Downloader.Gidora\Downloader.Gidora.shproj", "{8CEA4741-F223-46AA-9A15-B789DB5C162F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Downloader.Gidora.NET35", "src\Downloader.Gidora.NET35\Downloader.Gidora.NET35.csproj", "{7DA7AB9C-F3B4-4B7A-B557-4F73744EF44C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Downloader.Gidora.NET45", "src\Downloader.Gidora.NET45\Downloader.Gidora.NET45.csproj", "{B7D894B8-E556-4086-A2AE-C5BB7EC59DF7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Downloader.Gidora.NetStandard", "src\Downloader.Gidora.NetStandard\Downloader.Gidora.NetStandard.csproj", "{B93506A0-01BB-4470-9799-58412694B5DC}"
+EndProject
 Global
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		src\Downloader.Gidora\Downloader.Gidora.projitems*{27915ede-4e12-4682-a69f-4e735a867e4b}*SharedItemsImports = 4
+		src\Downloader.Gidora\Downloader.Gidora.projitems*{7da7ab9c-f3b4-4b7a-b557-4f73744ef44c}*SharedItemsImports = 4
+		src\Downloader.Gidora\Downloader.Gidora.projitems*{8cea4741-f223-46aa-9a15-b789db5c162f}*SharedItemsImports = 13
+		src\Downloader.Gidora\Downloader.Gidora.projitems*{b7d894b8-e556-4086-a2ae-c5bb7ec59df7}*SharedItemsImports = 4
+		src\Downloader.Gidora\Downloader.Gidora.projitems*{b93506a0-01bb-4470-9799-58412694b5dc}*SharedItemsImports = 5
+	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
@@ -15,6 +30,18 @@ Global
 		{27915EDE-4E12-4682-A69F-4E735A867E4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{27915EDE-4E12-4682-A69F-4E735A867E4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{27915EDE-4E12-4682-A69F-4E735A867E4B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7DA7AB9C-F3B4-4B7A-B557-4F73744EF44C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7DA7AB9C-F3B4-4B7A-B557-4F73744EF44C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7DA7AB9C-F3B4-4B7A-B557-4F73744EF44C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7DA7AB9C-F3B4-4B7A-B557-4F73744EF44C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7D894B8-E556-4086-A2AE-C5BB7EC59DF7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7D894B8-E556-4086-A2AE-C5BB7EC59DF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7D894B8-E556-4086-A2AE-C5BB7EC59DF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7D894B8-E556-4086-A2AE-C5BB7EC59DF7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B93506A0-01BB-4470-9799-58412694B5DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B93506A0-01BB-4470-9799-58412694B5DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B93506A0-01BB-4470-9799-58412694B5DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B93506A0-01BB-4470-9799-58412694B5DC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
